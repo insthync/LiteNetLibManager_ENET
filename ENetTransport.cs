@@ -32,7 +32,7 @@ public class ENetTransport : ITransport
         addressData.Port = (ushort)port;
         client.Create();
         clientPeer = client.Connect(addressData, 4);
-        return true;
+        return clientPeer.IsSet;
     }
 
     public void StopClient()
@@ -46,7 +46,7 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (client == null)
             return false;
-        client.Service(1000 / 64, out Event netEvent);
+        client.Service(0, out Event netEvent);
         switch (netEvent.Type)
         {
             case EventType.None:
@@ -60,7 +60,6 @@ public class ENetTransport : ITransport
             case EventType.Disconnect:
                 eventData.type = ENetworkEvent.DisconnectEvent;
                 eventData.connectionId = netEvent.Peer.ID;
-                serverPeers.Remove(netEvent.Peer.ID);
                 break;
 
             case EventType.Timeout:
@@ -70,7 +69,6 @@ public class ENetTransport : ITransport
                 {
                     Reason = DisconnectReason.Timeout
                 };
-                serverPeers.Remove(netEvent.Peer.ID);
                 break;
 
             case EventType.Receive:
@@ -118,7 +116,7 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (server == null)
             return false;
-        server.Service(1000 / 64, out Event netEvent);
+        server.Service(0, out Event netEvent);
         switch (netEvent.Type)
         {
             case EventType.None:
@@ -219,13 +217,13 @@ public class ENetTransport : ITransport
         switch (sendOptions)
         {
             case SendOptions.ReliableOrdered:
-                return PacketFlags.Reliable | PacketFlags.NoAllocate;
+                return PacketFlags.Reliable;
             case SendOptions.ReliableUnordered:
-                return PacketFlags.Reliable | PacketFlags.Unsequenced | PacketFlags.NoAllocate;
+                return PacketFlags.Reliable | PacketFlags.Unsequenced;
             case SendOptions.Sequenced:
-                return PacketFlags.None | PacketFlags.NoAllocate;
+                return PacketFlags.None;
             default:
-                return PacketFlags.None | PacketFlags.Unsequenced | PacketFlags.NoAllocate;
+                return PacketFlags.None | PacketFlags.Unsequenced;
         }
     }
 }
