@@ -12,6 +12,9 @@ public class ENetTransport : ITransport
     private Peer clientPeer;
     private Host server;
     private readonly Dictionary<long, Peer> serverPeers;
+    // Improve garbage collection
+    private Event tempNetEvent;
+    private byte[] tempBuffers;
 
     public ENetTransport()
     {
@@ -38,6 +41,9 @@ public class ENetTransport : ITransport
     {
         if (clientPeer.IsSet)
             clientPeer.Disconnect(0);
+        if (client != null)
+            client.Dispose();
+        client = null;
     }
 
     public bool ClientReceive(out TransportEventData eventData)
@@ -45,25 +51,25 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (client == null)
             return false;
-        client.Service(0, out Event netEvent);
-        switch (netEvent.Type)
+        client.Service(0, out tempNetEvent);
+        switch (tempNetEvent.Type)
         {
             case EventType.None:
                 return false;
 
             case EventType.Connect:
                 eventData.type = ENetworkEvent.ConnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 break;
 
             case EventType.Disconnect:
                 eventData.type = ENetworkEvent.DisconnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 break;
 
             case EventType.Timeout:
                 eventData.type = ENetworkEvent.DisconnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 eventData.disconnectInfo = new DisconnectInfo()
                 {
                     Reason = DisconnectReason.Timeout
@@ -71,13 +77,13 @@ public class ENetTransport : ITransport
                 break;
 
             case EventType.Receive:
-                var tempBuffers = new byte[netEvent.Packet.Length];
-                netEvent.Packet.CopyTo(tempBuffers);
+                tempBuffers = new byte[tempNetEvent.Packet.Length];
+                tempNetEvent.Packet.CopyTo(tempBuffers);
 
                 eventData.type = ENetworkEvent.DataEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 eventData.reader = new NetDataReader(tempBuffers);
-                netEvent.Packet.Dispose();
+                tempNetEvent.Packet.Dispose();
                 break;
         }
         return true;
@@ -115,42 +121,42 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (server == null)
             return false;
-        server.Service(0, out Event netEvent);
-        switch (netEvent.Type)
+        server.Service(0, out tempNetEvent);
+        switch (tempNetEvent.Type)
         {
             case EventType.None:
                 return false;
 
             case EventType.Connect:
                 eventData.type = ENetworkEvent.ConnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
-                serverPeers[netEvent.Peer.ID] = netEvent.Peer;
+                eventData.connectionId = tempNetEvent.Peer.ID;
+                serverPeers[tempNetEvent.Peer.ID] = tempNetEvent.Peer;
                 break;
 
             case EventType.Disconnect:
                 eventData.type = ENetworkEvent.DisconnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
-                serverPeers.Remove(netEvent.Peer.ID);
+                eventData.connectionId = tempNetEvent.Peer.ID;
+                serverPeers.Remove(tempNetEvent.Peer.ID);
                 break;
 
             case EventType.Timeout:
                 eventData.type = ENetworkEvent.DisconnectEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 eventData.disconnectInfo = new DisconnectInfo()
                 {
                     Reason = DisconnectReason.Timeout
                 };
-                serverPeers.Remove(netEvent.Peer.ID);
+                serverPeers.Remove(tempNetEvent.Peer.ID);
                 break;
 
             case EventType.Receive:
-                var tempBuffers = new byte[netEvent.Packet.Length];
-                netEvent.Packet.CopyTo(tempBuffers);
+                tempBuffers = new byte[tempNetEvent.Packet.Length];
+                tempNetEvent.Packet.CopyTo(tempBuffers);
 
                 eventData.type = ENetworkEvent.DataEvent;
-                eventData.connectionId = netEvent.Peer.ID;
+                eventData.connectionId = tempNetEvent.Peer.ID;
                 eventData.reader = new NetDataReader(tempBuffers);
-                netEvent.Packet.Dispose();
+                tempNetEvent.Packet.Dispose();
                 break;
         }
         return true;
