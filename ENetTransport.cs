@@ -222,14 +222,13 @@ public class ENetTransport : ITransport
         switch (deliveryMethod)
         {
             case DeliveryMethod.ReliableOrdered:
+            case DeliveryMethod.ReliableUnordered:
             case DeliveryMethod.ReliableSequenced:
                 return PacketFlags.Reliable;
-            case DeliveryMethod.ReliableUnordered:
-                return PacketFlags.Reliable | PacketFlags.Unsequenced;
             case DeliveryMethod.Sequenced:
                 return PacketFlags.None;
             default:
-                return PacketFlags.None | PacketFlags.Unsequenced;
+                return PacketFlags.Unsequenced;
         }
     }
 }
