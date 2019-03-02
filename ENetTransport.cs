@@ -89,13 +89,13 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ClientSend(SendOptions sendOptions, NetDataWriter writer)
+    public bool ClientSend(DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
         if (IsClientStarted())
         {
             Packet packet = default(Packet);
-            packet.Create(writer.Data, writer.Length, GetPacketFlags(sendOptions));
-            clientPeer.Send(GetChannelID(sendOptions), ref packet);
+            packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
+            clientPeer.Send(GetChannelID(deliveryMethod), ref packet);
             return true;
         }
         return false;
@@ -162,13 +162,13 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ServerSend(long connectionId, SendOptions sendOptions, NetDataWriter writer)
+    public bool ServerSend(long connectionId, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
         if (IsServerStarted() && serverPeers.ContainsKey(connectionId))
         {
             Packet packet = default(Packet);
-            packet.Create(writer.Data, writer.Length, GetPacketFlags(sendOptions));
-            serverPeers[connectionId].Send(GetChannelID(sendOptions), ref packet);
+            packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
+            serverPeers[connectionId].Send(GetChannelID(deliveryMethod), ref packet);
             return true;
         }
         return false;
@@ -206,26 +206,27 @@ public class ENetTransport : ITransport
         return port;
     }
 
-    public byte GetChannelID(SendOptions sendOptions)
+    public byte GetChannelID(DeliveryMethod deliveryMethod)
     {
-        switch (sendOptions)
+        switch (deliveryMethod)
         {
-            case SendOptions.Sequenced:
-            case SendOptions.Unreliable:
+            case DeliveryMethod.Sequenced:
+            case DeliveryMethod.Unreliable:
                 return 1;
         }
         return 0;
     }
 
-    public PacketFlags GetPacketFlags(SendOptions sendOptions)
+    public PacketFlags GetPacketFlags(DeliveryMethod deliveryMethod)
     {
-        switch (sendOptions)
+        switch (deliveryMethod)
         {
-            case SendOptions.ReliableOrdered:
+            case DeliveryMethod.ReliableOrdered:
+            case DeliveryMethod.ReliableSequenced:
                 return PacketFlags.Reliable;
-            case SendOptions.ReliableUnordered:
+            case DeliveryMethod.ReliableUnordered:
                 return PacketFlags.Reliable | PacketFlags.Unsequenced;
-            case SendOptions.Sequenced:
+            case DeliveryMethod.Sequenced:
                 return PacketFlags.None;
             default:
                 return PacketFlags.None | PacketFlags.Unsequenced;
