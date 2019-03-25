@@ -195,6 +195,13 @@ public class ENetTransport : ITransport
         StopServer();
     }
 
+    public int GetServerPeersCount()
+    {
+        if (server.IsSet)
+            return (int)server.PeersCount;
+        return 0;
+    }
+
     public byte GetChannelID(DeliveryMethod deliveryMethod)
     {
         switch (deliveryMethod)
