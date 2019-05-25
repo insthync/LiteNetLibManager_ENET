@@ -1,0 +1,11 @@
+{
+    "name": "ENetTransportLayer",
+    "references": [
+        "LiteNetLibManagerEditor",
+        "LiteNetLibManager"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false
+}
