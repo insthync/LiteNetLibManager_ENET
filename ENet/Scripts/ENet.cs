@@ -137,6 +137,22 @@ namespace ENet {
 			}
 		}
 
+		public string GetIP() {
+			StringBuilder ip = new StringBuilder(1024);
+
+			if (Native.enet_address_get_host_ip(nativeAddress, ip, (IntPtr)ip.Capacity) != 0)
+				return String.Empty;
+
+			return ip.ToString();
+		}
+
+		public bool SetIP(string ip) {
+			if (ip == null)
+				throw new ArgumentNullException("ip");
+
+			return Native.enet_address_set_host_ip(ref nativeAddress, ip) == 0;
+		}
+
 		public string GetHost() {
 			StringBuilder hostName = new StringBuilder(1024);
 
@@ -502,6 +518,14 @@ namespace ENet {
 			packet.NativeData = IntPtr.Zero;
 		}
 
+		public void Broadcast(byte channelID, ref Packet packet, Peer excludedPeer) {
+			CheckCreated();
+
+			packet.CheckCreated();
+			Native.enet_host_broadcast_excluding(nativeHost, channelID, packet.NativeData, excludedPeer.NativeData);
+			packet.NativeData = IntPtr.Zero;
+		}
+
 		public void Broadcast(byte channelID, ref Packet packet, Peer[] peers) {
 			CheckCreated();
 
@@ -763,6 +787,22 @@ namespace ENet {
 			return Native.enet_peer_send(nativePeer, channelID, packet.NativeData) == 0;
 		}
 
+		public bool Receive(out byte channelID, out Packet packet) {
+			CheckCreated();
+
+			IntPtr nativePacket = Native.enet_peer_receive(nativePeer, out channelID);
+
+			if (nativePacket != IntPtr.Zero) {
+				packet = new Packet(nativePacket);
+
+				return true;
+			}
+
+			packet = default(Packet);
+
+			return false;
+		}
+
 		public void Ping() {
 			CheckCreated();
 
@@ -830,7 +870,7 @@ namespace ENet {
 		public const uint timeoutLimit = 32;
 		public const uint timeoutMinimum = 5000;
 		public const uint timeoutMaximum = 30000;
-		public const uint version = (2 << 16) | (2 << 8) | (0);
+		public const uint version = (2 << 16) | (2 << 8) | (6);
 
 		public static bool Initialize() {
 			return Native.enet_initialize() == 0;
@@ -872,10 +912,16 @@ namespace ENet {
 		internal static extern uint enet_time_get();
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
-		internal static extern int enet_address_get_host(ENetAddress address, StringBuilder hostName, IntPtr nameLength);
+		internal static extern int enet_address_set_host_ip(ref ENetAddress address, string ip);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_address_set_host(ref ENetAddress address, string hostName);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern int enet_address_get_host_ip(ENetAddress address, StringBuilder ip, IntPtr ipLength);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern int enet_address_get_host(ENetAddress address, StringBuilder hostName, IntPtr nameLength);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern IntPtr enet_packet_create(byte[] data, IntPtr dataLength, PacketFlags flags);
@@ -915,6 +961,9 @@ namespace ENet {
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_host_broadcast(IntPtr host, byte channelID, IntPtr packet);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern void enet_host_broadcast_excluding(IntPtr host, byte channelID, IntPtr packet, IntPtr excludedPeer);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_host_broadcast_selective(IntPtr host, byte channelID, IntPtr packet, IntPtr[] peers, IntPtr peersLength);
@@ -1005,6 +1054,9 @@ namespace ENet {
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern int enet_peer_send(IntPtr peer, byte channelID, IntPtr packet);
+
+		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
+		internal static extern IntPtr enet_peer_receive(IntPtr peer, out byte channelID);
 
 		[DllImport(nativeLibrary, CallingConvention = CallingConvention.Cdecl)]
 		internal static extern void enet_peer_ping(IntPtr peer);
