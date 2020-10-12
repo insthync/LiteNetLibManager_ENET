@@ -26,6 +26,8 @@ public class ENetTransport : ITransport
 
     public bool StartClient(string address, int port)
     {
+        if (IsClientStarted())
+            return false;
         client = new Host();
         Address addressData = new Address();
         addressData.SetHost(address);
@@ -106,6 +108,8 @@ public class ENetTransport : ITransport
 
     public bool StartServer(int port, int maxConnections)
     {
+        if (IsServerStarted())
+            return false;
         serverPeers.Clear();
         server = new Host();
         Address address = new Address();
@@ -162,7 +166,7 @@ public class ENetTransport : ITransport
 
     public bool ServerSend(long connectionId, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
-        if (IsServerStarted() && serverPeers.ContainsKey(connectionId))
+        if (IsServerStarted() && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
@@ -177,6 +181,7 @@ public class ENetTransport : ITransport
         if (IsServerStarted() && serverPeers.ContainsKey(connectionId))
         {
             serverPeers[connectionId].Disconnect(0);
+            serverPeers.Remove(connectionId);
             return true;
         }
         return false;
