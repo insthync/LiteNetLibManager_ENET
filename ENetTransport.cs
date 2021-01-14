@@ -9,24 +9,36 @@ public class ENetTransport : ITransport
     private Host client;
     private Peer clientPeer;
     private Host server;
+    private readonly int maxChannel;
     private readonly Dictionary<long, Peer> serverPeers;
-    // Improve garbage collection
-    private Event tempNetEvent;
-    private byte[] tempBuffers;
-
-    public ENetTransport()
+    public bool IsClientStarted
     {
-        serverPeers = new Dictionary<long, Peer>();
+        get { return clientPeer.IsSet && clientPeer.State == PeerState.Connected; }
     }
-
-    public bool IsClientStarted()
+    public bool IsServerStarted
     {
-        return clientPeer.IsSet && clientPeer.State == PeerState.Connected;
+        get { return server != null && server.IsSet; }
+    }
+    public int ServerPeersCount
+    {
+        get
+        {
+            if (server.IsSet)
+                return (int)server.PeersCount;
+            return 0;
+        }
+    }
+    public int ServerMaxConnections { get; private set; }
+
+    public ENetTransport(int maxChannel)
+    {
+        this.maxChannel = maxChannel;
+        serverPeers = new Dictionary<long, Peer>();
     }
 
     public bool StartClient(string address, int port)
     {
-        if (IsClientStarted())
+        if (IsClientStarted)
             return false;
         client = new Host();
         Address addressData = new Address();
@@ -51,6 +63,8 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (client == null)
             return false;
+        Event tempNetEvent;
+        byte[] tempBuffers;
         client.Service(0, out tempNetEvent);
         switch (tempNetEvent.Type)
         {
@@ -91,7 +105,7 @@ public class ENetTransport : ITransport
 
     public bool ClientSend(DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
-        if (IsClientStarted())
+        if (IsClientStarted)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
@@ -101,20 +115,16 @@ public class ENetTransport : ITransport
         return false;
     }
 
-    public bool IsServerStarted()
-    {
-        return server != null && server.IsSet;
-    }
-
     public bool StartServer(int port, int maxConnections)
     {
-        if (IsServerStarted())
+        if (IsServerStarted)
             return false;
+        ServerMaxConnections = maxConnections;
         serverPeers.Clear();
         server = new Host();
         Address address = new Address();
         address.Port = (ushort)port;
-        server.Create(address, maxConnections, 4);
+        server.Create(address, maxConnections, maxChannel);
         return true;
     }
 
@@ -123,6 +133,8 @@ public class ENetTransport : ITransport
         eventData = default(TransportEventData);
         if (server == null)
             return false;
+        Event tempNetEvent;
+        byte[] tempBuffers;
         server.Service(0, out tempNetEvent);
         switch (tempNetEvent.Type)
         {
@@ -166,7 +178,7 @@ public class ENetTransport : ITransport
 
     public bool ServerSend(long connectionId, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
-        if (IsServerStarted() && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
+        if (IsServerStarted && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
@@ -178,7 +190,7 @@ public class ENetTransport : ITransport
 
     public bool ServerDisconnect(long connectionId)
     {
-        if (IsServerStarted() && serverPeers.ContainsKey(connectionId))
+        if (IsServerStarted && serverPeers.ContainsKey(connectionId))
         {
             serverPeers[connectionId].Disconnect(0);
             serverPeers.Remove(connectionId);
@@ -198,13 +210,6 @@ public class ENetTransport : ITransport
     {
         StopClient();
         StopServer();
-    }
-
-    public int GetServerPeersCount()
-    {
-        if (server.IsSet)
-            return (int)server.PeersCount;
-        return 0;
     }
 
     public byte GetChannelID(DeliveryMethod deliveryMethod)
