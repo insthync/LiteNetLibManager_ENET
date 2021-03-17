@@ -103,13 +103,13 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ClientSend(DeliveryMethod deliveryMethod, NetDataWriter writer)
+    public bool ClientSend(byte dataChannel, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
         if (IsClientStarted)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
-            clientPeer.Send(GetChannelID(deliveryMethod), ref packet);
+            clientPeer.Send(dataChannel, ref packet);
             return true;
         }
         return false;
@@ -176,13 +176,13 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ServerSend(long connectionId, DeliveryMethod deliveryMethod, NetDataWriter writer)
+    public bool ServerSend(long connectionId, byte dataChannel, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
         if (IsServerStarted && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
-            serverPeers[connectionId].Send(GetChannelID(deliveryMethod), ref packet);
+            serverPeers[connectionId].Send(dataChannel, ref packet);
             return true;
         }
         return false;
@@ -210,17 +210,6 @@ public class ENetTransport : ITransport
     {
         StopClient();
         StopServer();
-    }
-
-    public byte GetChannelID(DeliveryMethod deliveryMethod)
-    {
-        switch (deliveryMethod)
-        {
-            case DeliveryMethod.Sequenced:
-            case DeliveryMethod.Unreliable:
-                return 1;
-        }
-        return 0;
     }
 
     public PacketFlags GetPacketFlags(DeliveryMethod deliveryMethod)
