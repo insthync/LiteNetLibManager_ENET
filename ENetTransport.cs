@@ -103,12 +103,12 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ClientSend(byte dataChannel, DeliveryMethod deliveryMethod, NetDataWriter writer)
+    public bool ClientSend(byte dataChannel, DeliveryMethod deliveryMethod, byte[] data)
     {
         if (IsClientStarted)
         {
             Packet packet = default(Packet);
-            packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
+            packet.Create(data, data.Length, GetPacketFlags(deliveryMethod));
             clientPeer.Send(dataChannel, ref packet);
             return true;
         }
@@ -176,12 +176,12 @@ public class ENetTransport : ITransport
         return true;
     }
 
-    public bool ServerSend(long connectionId, byte dataChannel, DeliveryMethod deliveryMethod, NetDataWriter writer)
+    public bool ServerSend(long connectionId, byte dataChannel, DeliveryMethod deliveryMethod, byte[] data)
     {
         if (IsServerStarted && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
         {
             Packet packet = default(Packet);
-            packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
+            packet.Create(data, data.Length, GetPacketFlags(deliveryMethod));
             serverPeers[connectionId].Send(dataChannel, ref packet);
             return true;
         }
