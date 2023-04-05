@@ -6,66 +6,71 @@ using ENet;
 
 public class ENetTransport : ITransport
 {
-    private Host client;
-    private Peer clientPeer;
-    private Host server;
-    private readonly int maxChannel;
-    private readonly Dictionary<long, Peer> serverPeers;
+    private Host _client;
+    private Peer _clientPeer;
+    private Host _server;
+    private readonly int _maxChannel;
+    private readonly Dictionary<long, Peer> _serverPeers;
     public bool IsClientStarted
     {
-        get { return clientPeer.IsSet && clientPeer.State == PeerState.Connected; }
+        get { return _clientPeer.IsSet && _clientPeer.State == PeerState.Connected; }
     }
     public bool IsServerStarted
     {
-        get { return server != null && server.IsSet; }
+        get { return _server != null && _server.IsSet; }
     }
     public int ServerPeersCount
     {
         get
         {
-            if (server.IsSet)
-                return (int)server.PeersCount;
+            if (_server.IsSet)
+                return (int)_server.PeersCount;
             return 0;
         }
     }
     public int ServerMaxConnections { get; private set; }
 
+    public bool HasImplementedPing
+    {
+        get { return true; }
+    }
+
     public ENetTransport(int maxChannel)
     {
-        this.maxChannel = maxChannel;
-        serverPeers = new Dictionary<long, Peer>();
+        _maxChannel = maxChannel;
+        _serverPeers = new Dictionary<long, Peer>();
     }
 
     public bool StartClient(string address, int port)
     {
         if (IsClientStarted)
             return false;
-        client = new Host();
+        _client = new Host();
         Address addressData = new Address();
         addressData.SetHost(address);
         addressData.Port = (ushort)port;
-        client.Create();
-        clientPeer = client.Connect(addressData, 4);
-        return clientPeer.IsSet;
+        _client.Create();
+        _clientPeer = _client.Connect(addressData, 4);
+        return _clientPeer.IsSet;
     }
 
     public void StopClient()
     {
-        if (clientPeer.IsSet)
-            clientPeer.Disconnect(0);
-        if (client != null)
-            client.Dispose();
-        client = null;
+        if (_clientPeer.IsSet)
+            _clientPeer.Disconnect(0);
+        if (_client != null)
+            _client.Dispose();
+        _client = null;
     }
 
     public bool ClientReceive(out TransportEventData eventData)
     {
         eventData = default(TransportEventData);
-        if (client == null)
+        if (_client == null)
             return false;
         Event tempNetEvent;
         byte[] tempBuffers;
-        client.Service(0, out tempNetEvent);
+        _client.Service(0, out tempNetEvent);
         switch (tempNetEvent.Type)
         {
             case EventType.None:
@@ -109,7 +114,7 @@ public class ENetTransport : ITransport
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
-            clientPeer.Send(dataChannel, ref packet);
+            _clientPeer.Send(dataChannel, ref packet);
             return true;
         }
         return false;
@@ -120,22 +125,22 @@ public class ENetTransport : ITransport
         if (IsServerStarted)
             return false;
         ServerMaxConnections = maxConnections;
-        serverPeers.Clear();
-        server = new Host();
+        _serverPeers.Clear();
+        _server = new Host();
         Address address = new Address();
         address.Port = (ushort)port;
-        server.Create(address, maxConnections, maxChannel);
+        _server.Create(address, maxConnections, _maxChannel);
         return true;
     }
 
     public bool ServerReceive(out TransportEventData eventData)
     {
         eventData = default(TransportEventData);
-        if (server == null)
+        if (_server == null)
             return false;
         Event tempNetEvent;
         byte[] tempBuffers;
-        server.Service(0, out tempNetEvent);
+        _server.Service(0, out tempNetEvent);
         switch (tempNetEvent.Type)
         {
             case EventType.None:
@@ -144,13 +149,13 @@ public class ENetTransport : ITransport
             case EventType.Connect:
                 eventData.type = ENetworkEvent.ConnectEvent;
                 eventData.connectionId = tempNetEvent.Peer.ID;
-                serverPeers[tempNetEvent.Peer.ID] = tempNetEvent.Peer;
+                _serverPeers[tempNetEvent.Peer.ID] = tempNetEvent.Peer;
                 break;
 
             case EventType.Disconnect:
                 eventData.type = ENetworkEvent.DisconnectEvent;
                 eventData.connectionId = tempNetEvent.Peer.ID;
-                serverPeers.Remove(tempNetEvent.Peer.ID);
+                _serverPeers.Remove(tempNetEvent.Peer.ID);
                 break;
 
             case EventType.Timeout:
@@ -160,7 +165,7 @@ public class ENetTransport : ITransport
                 {
                     Reason = DisconnectReason.Timeout
                 };
-                serverPeers.Remove(tempNetEvent.Peer.ID);
+                _serverPeers.Remove(tempNetEvent.Peer.ID);
                 break;
 
             case EventType.Receive:
@@ -178,11 +183,11 @@ public class ENetTransport : ITransport
 
     public bool ServerSend(long connectionId, byte dataChannel, DeliveryMethod deliveryMethod, NetDataWriter writer)
     {
-        if (IsServerStarted && serverPeers.ContainsKey(connectionId) && serverPeers[connectionId].State == PeerState.Connected)
+        if (IsServerStarted && _serverPeers.ContainsKey(connectionId) && _serverPeers[connectionId].State == PeerState.Connected)
         {
             Packet packet = default(Packet);
             packet.Create(writer.Data, writer.Length, GetPacketFlags(deliveryMethod));
-            serverPeers[connectionId].Send(dataChannel, ref packet);
+            _serverPeers[connectionId].Send(dataChannel, ref packet);
             return true;
         }
         return false;
@@ -190,10 +195,10 @@ public class ENetTransport : ITransport
 
     public bool ServerDisconnect(long connectionId)
     {
-        if (IsServerStarted && serverPeers.ContainsKey(connectionId))
+        if (IsServerStarted && _serverPeers.ContainsKey(connectionId))
         {
-            serverPeers[connectionId].Disconnect(0);
-            serverPeers.Remove(connectionId);
+            _serverPeers[connectionId].Disconnect(0);
+            _serverPeers.Remove(connectionId);
             return true;
         }
         return false;
@@ -201,9 +206,9 @@ public class ENetTransport : ITransport
 
     public void StopServer()
     {
-        if (server != null)
-            server.Dispose();
-        server = null;
+        if (_server != null)
+            _server.Dispose();
+        _server = null;
     }
 
     public void Destroy()
@@ -225,5 +230,15 @@ public class ENetTransport : ITransport
             default:
                 return PacketFlags.Unsequenced;
         }
+    }
+
+    public long GetClientRtt()
+    {
+        return _clientPeer.RoundTripTime;
+    }
+
+    public long GetServerRtt(long connectionId)
+    {
+        return _serverPeers[connectionId].RoundTripTime;
     }
 }
